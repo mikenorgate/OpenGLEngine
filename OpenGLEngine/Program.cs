@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
+using OpenGLEngine.Components;
 using OpenGLEngine.ECS;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -28,7 +29,7 @@ namespace OpenGLEngine
     {
         private EntitySystem _es;
         private Shader? _shader;
-        private Texture? _texture;
+        //private Texture? _texture;
         private readonly RenderSystem _renderSystem;
 
         public Window(GameWindowSettings gameWindowSettings) : base(gameWindowSettings, new NativeWindowSettings())
@@ -52,16 +53,18 @@ namespace OpenGLEngine
             GL.Enable(EnableCap.DepthTest);
 
             _shader = new Shader("shader.vert", "shader.frag");
-            _texture = new Texture("container.jpg");
+            //_texture = new Texture("container.jpg");
 
 
 
             GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
+            //var cubeModel = ModelLoader.CreateMeshFromModel("resources\\models\\cube.obj");
+            var cubeModel = ModelLoader.CreateMeshFromModel("resources\\models\\backpack\\backpack.obj");
+
 
             var cube = _es.CreateEntity();
-            var planeComponent = MeshComponent.Cube(new[] { _texture });
-            _es.AddComponent(cube, planeComponent);
+            _es.AddComponent(cube, cubeModel);
 
             //var cube2 = _es.CreateEntity();
             //_es.AddComponent(ref cube2, ref planeComponent);
@@ -77,7 +80,6 @@ namespace OpenGLEngine
 
 
             Matrix4 model = Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(-30.0f));
-            model *= Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(-30.0f));
 
             Matrix4 view = Matrix4.CreateTranslation(0.0f, 0.0f, -2.0f);
 
@@ -116,11 +118,11 @@ namespace OpenGLEngine
             {
                 var meshComponent = entity.GetComponent<MeshComponent>();
 
-                var translation = new Vector3(0.5f, -0.5f, 0f);
+                var translation = new Vector3(0.0f, 0.0f, 0f);
                 var rotation = Matrix4.CreateRotationX((float)MathHelper.DegreesToRadians(GLFW.GetTime() * 10));
-                rotation *= Matrix4.CreateRotationY((float)MathHelper.DegreesToRadians(GLFW.GetTime() * 10));
+                rotation *= Matrix4.CreateRotationZ((float)MathHelper.DegreesToRadians(GLFW.GetTime() * 10));
                 //var rotation = new Vector3((float)GLFW.GetTime() * (i), 0f, (float)GLFW.GetTime());
-                var scale = new Vector3(0.5f, 0.3f, 0f);
+                var scale = new Vector3(0.25f, 0.25f, 0.25f);
 
                 var r = rotation;
                 //var r = Matrix4.CreateFromQuaternion(Quaternion.FromEulerAngles(rotation));
@@ -135,145 +137,6 @@ namespace OpenGLEngine
                 i++;
             }
         }
-    }
-
-    internal struct MeshComponent
-    {
-        //TODO: component should have multiple meshes
-        private readonly Vertex[] _vertices;
-        private readonly uint[] _indices;
-        private readonly Texture[] _textures;
-        private int _vao;
-        private int _vbo;
-        private int _ebo;
-
-        public MeshComponent(Vertex[] vertices, uint[] indices, Texture[] textures)
-        {
-            _vertices = vertices;
-            _indices = indices;
-            _textures = textures;
-
-            SetupMesh();
-        }
-
-        unsafe void SetupMesh()
-        {
-            _vao = GL.GenVertexArray();
-            _vbo = GL.GenBuffer();
-            _ebo = GL.GenBuffer();
-
-            GL.BindVertexArray(_vao);
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-            GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(Vertex), _vertices, BufferUsageHint.StaticDraw);
-
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, _ebo);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, _indices.Length * sizeof(uint), _indices, BufferUsageHint.StaticDraw);
-
-            GL.EnableVertexAttribArray(0);
-            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, sizeof(Vertex), 0);
-
-            GL.EnableVertexAttribArray(1);
-            GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, sizeof(Vertex), 3 * sizeof(float));
-
-            GL.BindVertexArray(0);
-        }
-
-        public void Draw(Shader shader)
-        {
-            for (var i = 0; i < _textures.Length; i++)
-            {
-                GL.ActiveTexture(TextureUnit.Texture0 + i);
-                GL.Uniform1(GL.GetUniformLocation(shader.Handle, $"texture{i}"), i);
-                GL.BindTexture(TextureTarget.ProxyTexture2D, _textures[i].Handle);
-            }
-
-            GL.BindVertexArray(_vao);
-            GL.DrawElements(BeginMode.Triangles, _indices.Length, DrawElementsType.UnsignedInt, 0);
-            GL.BindVertexArray(0);
-        }
-
-        private void ReleaseUnmanagedResources()
-        {
-            GL.DeleteBuffer(_ebo);
-            GL.DeleteBuffer(_vbo);
-            GL.DeleteVertexArray(_vao);
-            _ebo = 0;
-            _vbo = 0;
-            _vao = 0;
-        }
-
-        private static readonly Vertex[] PlaneVertices = new[]
-        {
-            new Vertex(new Vector3(0.5f,0.5f,0.0f), new Vector2(1.0f, 1.0f)),
-            new Vertex(new Vector3(0.5f,-0.5f,0.0f), new Vector2(1.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,-0.5f,0.0f), new Vector2(0.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,0.5f,0.0f), new Vector2(0.0f, 1.0f))
-        };
-
-        private static readonly uint[] PlaneIndices = new uint[]
-        {
-            0, 1, 3,
-            1, 2, 3
-        };
-
-        private static readonly Vertex[] CubeVertices = new[]
-        {
-            new Vertex(new Vector3(0.5f,0.5f,-0.5f), new Vector2(1.0f, 1.0f)),
-            new Vertex(new Vector3(0.5f,-0.5f,-0.5f), new Vector2(1.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,-0.5f,-0.5f), new Vector2(0.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,0.5f,-0.5f), new Vector2(0.0f, 1.0f)),
-
-            new Vertex(new Vector3(0.5f,0.5f,0.5f), new Vector2(1.0f, 1.0f)),
-            new Vertex(new Vector3(0.5f,-0.5f,0.5f), new Vector2(1.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,-0.5f,0.5f), new Vector2(0.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,0.5f,0.5f), new Vector2(0.0f, 1.0f)),
-
-            new Vertex(new Vector3(-0.5f,0.5f,-0.5f), new Vector2(1.0f, 1.0f)),
-            new Vertex(new Vector3(-0.5f,0.5f,0.5f), new Vector2(1.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,-0.5f,0.5f), new Vector2(0.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,-0.5f,-0.5f), new Vector2(0.0f, 1.0f)),
-
-            new Vertex(new Vector3(0.5f,0.5f,-0.5f), new Vector2(1.0f, 1.0f)),
-            new Vertex(new Vector3(0.5f,0.5f,0.5f), new Vector2(1.0f, 0.0f)),
-            new Vertex(new Vector3(0.5f,-0.5f,0.5f), new Vector2(0.0f, 0.0f)),
-            new Vertex(new Vector3(0.5f,-0.5f,-0.5f), new Vector2(0.0f, 1.0f)),
-
-            new Vertex(new Vector3(0.5f,-0.5f,-0.5f), new Vector2(1.0f, 1.0f)),
-            new Vertex(new Vector3(0.5f,-0.5f,0.5f), new Vector2(1.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,-0.5f,0.5f), new Vector2(0.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,-0.5f,-0.5f), new Vector2(0.0f, 1.0f)),
-
-            new Vertex(new Vector3(0.5f,0.5f,-0.5f), new Vector2(1.0f, 1.0f)),
-            new Vertex(new Vector3(0.5f,0.5f,0.5f), new Vector2(1.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,0.5f,0.5f), new Vector2(0.0f, 0.0f)),
-            new Vertex(new Vector3(-0.5f,0.5f,-0.5f), new Vector2(0.0f, 1.0f)),
-        };
-
-
-        private static readonly uint[] CubeIndices = new uint[]
-        {
-            0, 1, 3,
-            1, 2, 3,
-
-            4, 5, 7,
-            5, 6, 7,
-
-            8, 9, 11,
-            9, 10, 11,
-
-            12, 13, 15,
-            13, 14, 15,
-
-            16, 17, 19,
-            17, 18, 19,
-
-            20, 21, 23,
-            21, 22, 23
-        };
-
-        public static MeshComponent Plane(Texture[] textures) => new MeshComponent(PlaneVertices, PlaneIndices, textures);
-        public static MeshComponent Cube(Texture[] textures) => new MeshComponent(CubeVertices, CubeIndices, textures);
     }
 
     internal class Texture

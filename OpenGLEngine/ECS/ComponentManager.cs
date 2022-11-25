@@ -39,10 +39,10 @@ internal class ComponentManager
         return _componentTypes[typeof(T)];
     }
 
-    public ref T GetComponent<T>(Entity entity)
+    public T GetComponent<T>(Entity entity)
         where T : struct
     {
-        return ref GetComponentArray<T>().GetData(entity);
+        return GetComponentArray<T>().GetData(entity);
     }
 
     public void AddComponent<T>(Entity entity, T component)
@@ -82,63 +82,44 @@ internal class ComponentManager
     class ComponentArray<T> : IComponentArray
         where T : struct
     {
-        private readonly T[] _componentArray;
-        private readonly int[] _entityToIndex;
-        private readonly int[] _indexToEntity;
+        private readonly T?[] _componentArray;
 
         private int _size;
 
         public ComponentArray(int maxEntities)
         {
-            _componentArray = new T[maxEntities];
-            _entityToIndex = new int[maxEntities];
-            _indexToEntity = new int[maxEntities];
-
-            Array.Fill(_entityToIndex, -1);
-            Array.Fill(_indexToEntity, -1);
+            _componentArray = new T?[maxEntities];
 
             _size = 0;
         }
 
         public void InsertData(Entity entity, T component)
         {
-            Debug.Assert(_entityToIndex[entity] == -1, "Component added to same entity more than once");
-
-            var index = _size;
-            _entityToIndex[entity] = index;
-            _indexToEntity[index] = entity;
-            _componentArray[index] = component;
+            Debug.Assert(!_componentArray[entity].HasValue, "Component added to same entity more than once");
+            
+            _componentArray[entity] = component;
             ++_size;
         }
 
         public void RemoveData(Entity entity)
         {
-            Debug.Assert(_entityToIndex[entity] >= 0, "Removing non-existant component");
+            Debug.Assert(_componentArray[entity].HasValue, "Removing non-existant component");
 
-            var indexToRemove = _entityToIndex[entity];
-            var indexOfLast = _size - 1;
-            _componentArray[indexToRemove] = _componentArray[indexOfLast];
-
-            var entityOfLast = _indexToEntity[indexOfLast];
-            _entityToIndex[entityOfLast] = indexToRemove;
-            _indexToEntity[indexToRemove] = entityOfLast;
-
-            _entityToIndex[entity] = -1;
-            _indexToEntity[indexOfLast] = -1;
+            _componentArray[entity] = null;
 
             --_size;
         }
 
-        public ref T GetData(Entity entity)
+        public T GetData(Entity entity)
         {
-            Debug.Assert(_entityToIndex[entity] >= 0, "Retrieving non-existant component");
+            Debug.Assert(_componentArray[entity].HasValue, "Retrieving non-existant component");
 
-            return ref _componentArray[_entityToIndex[entity]];
+            return _componentArray[entity]!.Value;
         }
 
         public void EntityDestroyed(Entity entity)
         {
-            if (_entityToIndex[entity] >= 0)
+            if (_componentArray[entity].HasValue)
                 RemoveData(entity);
         }
     }

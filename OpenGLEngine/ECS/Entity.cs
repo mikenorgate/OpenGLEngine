@@ -17,10 +17,10 @@ public readonly struct Entity : IEquatable<Entity>, IEquatable<int>, IComparable
         Id = id;
     }
 
-    public ref T GetComponent<T>()
+    public T GetComponent<T>()
         where T : struct
     {
-        return ref _entitySystem.GetComponent<T>(this);
+        return _entitySystem.GetComponent<T>(this);
     }
 
     public bool Equals(Entity other)

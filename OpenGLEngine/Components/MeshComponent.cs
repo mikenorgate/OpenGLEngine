@@ -21,7 +21,7 @@ namespace OpenGLEngine.Components
 
 
         [StructLayout(LayoutKind.Sequential, Size = sizeof(float) * 8)]
-        internal struct Vertex
+        internal readonly struct Vertex
         {
             public Vector3 Position { get; }
             public Vector3 Normal { get; }
@@ -35,27 +35,22 @@ namespace OpenGLEngine.Components
             }
         }
 
-        internal struct Mesh
+        internal readonly struct Mesh
         {
-            private int _vao;
-            private int _vbo;
-            private int _ebo;
+            private readonly int _vao;
+            private readonly int _vbo;
+            private readonly int _ebo;
 
             public Vertex[] Vertices { get; }
             public uint[] Indices { get; }
             public Texture[] Textures { get; }
 
-            public Mesh(Vertex[] vertices, uint[] indices, Texture[] textures)
+            public unsafe Mesh(Vertex[] vertices, uint[] indices, Texture[] textures)
             {
                 Vertices = vertices;
                 Indices = indices;
                 Textures = textures;
 
-                SetupMesh();
-            }
-
-            unsafe void SetupMesh()
-            {
                 _vao = GL.GenVertexArray();
                 _vbo = GL.GenBuffer();
                 _ebo = GL.GenBuffer();
@@ -122,7 +117,7 @@ namespace OpenGLEngine.Components
         }
     }
 
-    internal struct Texture
+    internal readonly struct Texture
     {
         public int Id { get; }
         public TextureType Type { get; }

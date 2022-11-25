@@ -1,15 +1,15 @@
-﻿using Assimp;
+﻿using System.Security.Cryptography.X509Certificates;
+using Assimp;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using StbImageSharp;
-using System.IO;
 using TextureWrapMode = OpenTK.Graphics.OpenGL4.TextureWrapMode;
 
 namespace OpenGLEngine.Components;
 
 internal static class ModelLoader
 {
-    private static Dictionary<string, Texture> _loadedTextures = new Dictionary<string, Texture>(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, Texture> LoadedTextures = new(StringComparer.OrdinalIgnoreCase);
 
     public static MeshComponent CreateMeshFromModel(string path)
     {
@@ -49,14 +49,21 @@ internal static class ModelLoader
         for (var i = 0; i < mesh.VertexCount; i++)
         {
             var vertex = mesh.Vertices[i];
-            var normal = mesh.Normals[i];
-            var texCoords = new Vector2(0.0f, 0.0f);
+
+            var normal = Vector3.Zero;
+            if (mesh.HasNormals)
+            {
+                var n = mesh.Normals[i];
+                normal = new Vector3(n.X, n.Y, n.Z);
+            }
+            
+            var texCoords = Vector2.Zero;
             if (mesh.HasTextureCoords(0))
             {
                 var coords = mesh.TextureCoordinateChannels[0][i];
                 texCoords = new Vector2(coords.X, coords.Y);
             }
-            vertices[i] = new MeshComponent.Vertex(new Vector3(vertex.X, vertex.Y, vertex.Z), new Vector3(normal.X, normal.Y, normal.Z), texCoords);
+            vertices[i] = new MeshComponent.Vertex(new Vector3(vertex.X, vertex.Y, vertex.Z), normal, texCoords);
         }
 
         var textures = new List<Texture>();
@@ -82,7 +89,7 @@ internal static class ModelLoader
         foreach (var materialTexture in material.GetMaterialTextures(type))
         {
             var path = Path.Combine(workingDir, materialTexture.FilePath);
-            if (_loadedTextures.TryGetValue(path, out var texture))
+            if (LoadedTextures.TryGetValue(path, out var texture))
             {
                 textures.Add(texture);
             }
@@ -91,7 +98,7 @@ internal static class ModelLoader
                 var id = LoadTextureFromFile(path);
                 texture = new Texture(id, textureType);
                 textures.Add(texture);
-                _loadedTextures.Add(path, texture);
+                LoadedTextures.Add(path, texture);
             }
         }
         return textures.ToArray();

@@ -44,7 +44,7 @@ internal class SystemManager
             var system = _systems[type];
             var systemSignature = _signatures[type];
 
-            if ((signature & systemSignature) == systemSignature)
+            if ((signature & systemSignature) != 0)
             {
                 system.Entities.Add(entity);
             }

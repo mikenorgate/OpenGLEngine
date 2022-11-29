@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
@@ -104,9 +104,15 @@ namespace OpenGLEngine.Benchmarks
         //}
 
         [Benchmark]
-        public BenchmarkComponent1 GetComponentFromEntity()
+        public BenchmarkComponent1 GetComponentFromEntitySystem()
         {
             return _ecs.GetComponent<BenchmarkComponent1>(_entity1);
+        }
+
+        [Benchmark]
+        public BenchmarkComponent1 GetComponentFromEntity()
+        {
+            return _entity1.GetComponent<BenchmarkComponent1>();
         }
 
         public class BenchmarkSystem : ECS.System

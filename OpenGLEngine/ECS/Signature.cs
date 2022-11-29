@@ -2,7 +2,7 @@
 
 namespace OpenGLEngine.ECS;
 
-public struct Signature : IEquatable<Signature>
+public struct Signature : IEquatable<Signature>, IEquatable<int>
 {
     private BitVector32 _signature;
 
@@ -18,7 +18,7 @@ public struct Signature : IEquatable<Signature>
 
     public void Set(ComponentType componentType, bool value = true)
     {
-        _signature[componentType.Id] = value;
+        _signature[1 << componentType.Id] = value;
     }
 
     public void Reset()
@@ -36,9 +36,14 @@ public struct Signature : IEquatable<Signature>
         return _signature.Equals(other._signature);
     }
 
+    public bool Equals(int other)
+    {
+        return _signature.Data.Equals(other);
+    }
+
     public override bool Equals(object? obj)
     {
-        return obj is Signature other && Equals(other);
+        return (obj is Signature other && Equals(other)) || (obj is int o && Equals(o));
     }
 
     public override int GetHashCode()
@@ -52,6 +57,16 @@ public struct Signature : IEquatable<Signature>
     }
 
     public static bool operator !=(Signature left, Signature right)
+    {
+        return !left.Equals(right);
+    }
+
+    public static bool operator ==(Signature left, int right)
+    {
+        return left._signature.Data.Equals(right);
+    }
+
+    public static bool operator !=(Signature left, int right)
     {
         return !left.Equals(right);
     }

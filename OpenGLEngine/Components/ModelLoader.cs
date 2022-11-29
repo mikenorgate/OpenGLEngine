@@ -1,5 +1,4 @@
-﻿using System.Security.Cryptography.X509Certificates;
-using Assimp;
+﻿using Assimp;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using StbImageSharp;
@@ -15,7 +14,8 @@ internal static class ModelLoader
     {
         using var assimpContext = new AssimpContext();
         var scene = assimpContext.ImportFile(path, PostProcessSteps.Triangulate | PostProcessSteps.FlipUVs);
-        if (scene == null || (scene.SceneFlags & SceneFlags.Incomplete) == SceneFlags.Incomplete || scene.RootNode == null)
+        if (scene == null || (scene.SceneFlags & SceneFlags.Incomplete) == SceneFlags.Incomplete ||
+            scene.RootNode == null)
             throw new InvalidOperationException("Failed import");
 
         var meshes = new List<MeshComponent.Mesh>();
@@ -27,7 +27,7 @@ internal static class ModelLoader
         return new MeshComponent(meshes.ToArray());
     }
 
-    static void ProcessNode(Node node, Scene scene, List<MeshComponent.Mesh> meshes, string workingDir)
+    private static void ProcessNode(Node node, Scene scene, List<MeshComponent.Mesh> meshes, string workingDir)
     {
         foreach (var i in node.MeshIndices)
         {
@@ -35,13 +35,10 @@ internal static class ModelLoader
             meshes.Add(ProcessMesh(mesh, scene, workingDir));
         }
 
-        for (var i = 0; i < node.ChildCount; i++)
-        {
-            ProcessNode(node.Children[i], scene, meshes, workingDir);
-        }
+        for (var i = 0; i < node.ChildCount; i++) ProcessNode(node.Children[i], scene, meshes, workingDir);
     }
 
-    static MeshComponent.Mesh ProcessMesh(Mesh mesh, Scene scene, string workingDir)
+    private static MeshComponent.Mesh ProcessMesh(Mesh mesh, Scene scene, string workingDir)
     {
         var vertices = new MeshComponent.Vertex[mesh.VertexCount];
         var indices = mesh.GetUnsignedIndices();
@@ -56,13 +53,14 @@ internal static class ModelLoader
                 var n = mesh.Normals[i];
                 normal = new Vector3(n.X, n.Y, n.Z);
             }
-            
+
             var texCoords = Vector2.Zero;
             if (mesh.HasTextureCoords(0))
             {
                 var coords = mesh.TextureCoordinateChannels[0][i];
                 texCoords = new Vector2(coords.X, coords.Y);
             }
+
             vertices[i] = new MeshComponent.Vertex(new Vector3(vertex.X, vertex.Y, vertex.Z), normal, texCoords);
         }
 
@@ -70,9 +68,12 @@ internal static class ModelLoader
         if (mesh.MaterialIndex >= 0)
         {
             var material = scene.Materials[mesh.MaterialIndex];
-            var diffuseMaps = LoadMaterialTextures(material, Assimp.TextureType.Diffuse, TextureType.Diffuse, workingDir);
-            var specularMaps = LoadMaterialTextures(material, Assimp.TextureType.Specular, TextureType.Specular, workingDir);
-            var normalMaps = LoadMaterialTextures(material, Assimp.TextureType.Normals, TextureType.Normals, workingDir);
+            var diffuseMaps =
+                LoadMaterialTextures(material, Assimp.TextureType.Diffuse, TextureType.Diffuse, workingDir);
+            var specularMaps =
+                LoadMaterialTextures(material, Assimp.TextureType.Specular, TextureType.Specular, workingDir);
+            var normalMaps =
+                LoadMaterialTextures(material, Assimp.TextureType.Normals, TextureType.Normals, workingDir);
             var heightMaps = LoadMaterialTextures(material, Assimp.TextureType.Height, TextureType.Height, workingDir);
             textures.AddRange(diffuseMaps);
             textures.AddRange(specularMaps);
@@ -83,9 +84,11 @@ internal static class ModelLoader
         return new MeshComponent.Mesh(vertices, indices, textures.ToArray());
     }
 
-    static Texture[] LoadMaterialTextures(Material material, Assimp.TextureType type, TextureType textureType, string workingDir)
+    private static Texture[] LoadMaterialTextures(Material material, Assimp.TextureType type, TextureType textureType,
+        string workingDir)
     {
         var textures = new List<Texture>();
+        var index = 0;
         foreach (var materialTexture in material.GetMaterialTextures(type))
         {
             var path = Path.Combine(workingDir, materialTexture.FilePath);
@@ -96,15 +99,16 @@ internal static class ModelLoader
             else
             {
                 var id = LoadTextureFromFile(path);
-                texture = new Texture(id, textureType);
+                texture = new Texture(id, textureType, index++);
                 textures.Add(texture);
                 LoadedTextures.Add(path, texture);
             }
         }
+
         return textures.ToArray();
     }
 
-    static int LoadTextureFromFile(string path)
+    private static int LoadTextureFromFile(string path)
     {
         var textureId = GL.GenTexture();
 
@@ -130,14 +134,14 @@ internal static class ModelLoader
             }
 
             GL.BindTexture(TextureTarget.Texture2D, textureId);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, format, image.Width, image.Height, 0, pixelFormat, PixelType.UnsignedByte, image.Data);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, format, image.Width, image.Height, 0, pixelFormat,
+                PixelType.UnsignedByte, image.Data);
             GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-
         }
         catch
         {

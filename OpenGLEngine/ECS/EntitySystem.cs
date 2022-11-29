@@ -60,10 +60,10 @@
             _systemManager.EntitySignatureChanged(entity, signature);
         }
 
-        public T GetComponent<T>(Entity entity)
+        public ref T GetComponent<T>(Entity entity)
             where T : struct
         {
-            return _componentManager.GetComponent<T>(entity);
+            return ref _componentManager.GetComponent<T>(entity);
         }
 
         public ComponentType GetComponentType<T>()

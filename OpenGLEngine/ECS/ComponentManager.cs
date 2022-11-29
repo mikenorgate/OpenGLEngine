@@ -39,10 +39,10 @@ internal class ComponentManager
         return _componentTypes[typeof(T)];
     }
 
-    public T GetComponent<T>(Entity entity)
+    public ref T GetComponent<T>(Entity entity)
         where T : struct
     {
-        return GetComponentArray<T>().GetData(entity);
+        return ref GetComponentArray<T>().GetData(entity);
     }
 
     public void AddComponent<T>(Entity entity, T component)
@@ -82,44 +82,47 @@ internal class ComponentManager
     class ComponentArray<T> : IComponentArray
         where T : struct
     {
-        private readonly T?[] _componentArray;
+        private readonly T[] _componentArray;
+        private readonly bool[] _existsArray;
 
         private int _size;
 
         public ComponentArray(int maxEntities)
         {
-            _componentArray = new T?[maxEntities];
+            _componentArray = new T[maxEntities];
+            _existsArray = new bool[maxEntities];
 
             _size = 0;
         }
 
         public void InsertData(Entity entity, T component)
         {
-            Debug.Assert(!_componentArray[entity].HasValue, "Component added to same entity more than once");
+            Debug.Assert(!_existsArray[entity], "Component added to same entity more than once");
             
             _componentArray[entity] = component;
+            _existsArray[entity] = true;
             ++_size;
         }
 
         public void RemoveData(Entity entity)
         {
-            Debug.Assert(_componentArray[entity].HasValue, "Removing non-existant component");
+            Debug.Assert(_existsArray[entity], "Removing non-existant component");
 
-            _componentArray[entity] = null;
+            _existsArray[entity] = false;
 
             --_size;
         }
 
-        public T GetData(Entity entity)
+        public ref T GetData(Entity entity)
         {
-            Debug.Assert(_componentArray[entity].HasValue, "Retrieving non-existant component");
+            Debug.Assert(_existsArray[entity], "Retrieving non-existant component");
 
-            return _componentArray[entity]!.Value;
+            return ref _componentArray[entity];
         }
 
         public void EntityDestroyed(Entity entity)
         {
-            if (_componentArray[entity].HasValue)
+            if (_existsArray[entity])
                 RemoveData(entity);
         }
     }

@@ -31,19 +31,89 @@ namespace OpenGLEngine
         private Shader? _shader;
         //private Texture? _texture;
         private readonly RenderSystem _renderSystem;
+        private readonly CameraSystem _cameraSystem;
+        private readonly ScriptSystem _scriptSystem;
 
         public Window(GameWindowSettings gameWindowSettings) : base(gameWindowSettings, new NativeWindowSettings())
         {
-            Size = (1920, 1080);
-            VSync = VSyncMode.Off;
+
             _es = new EntitySystem(100);
             _es.RegisterComponent<MeshComponent>();
+            _es.RegisterComponent<CameraComponent>();
+            _es.RegisterComponent<TransformComponent>();
+            _es.RegisterComponent<ScriptComponent>();
 
             _renderSystem = _es.RegisterSystem<RenderSystem>();
+            _cameraSystem = _es.RegisterSystem<CameraSystem>();
+            _scriptSystem = _es.RegisterSystem<ScriptSystem>();
 
             var signature = new Signature();
             signature.Set(_es.GetComponentType<MeshComponent>());
             _es.SetSystemSignature<RenderSystem>(signature);
+
+            signature = new Signature();
+            signature.Set(_es.GetComponentType<CameraComponent>());
+            signature.Set(_es.GetComponentType<TransformComponent>());
+            _es.SetSystemSignature<CameraSystem>(signature);
+
+            signature = new Signature();
+            signature.Set(_es.GetComponentType<ScriptComponent>());
+            _es.SetSystemSignature<ScriptSystem>(signature);
+
+
+            var camera = _es.CreateEntity();
+            _es.AddComponent(camera, new CameraComponent(CameraProjectionType.Perspective, 0.1f, 100.0f, MathHelper.DegreesToRadians(45.0f), 0, (float)Size.X / Size.Y));
+            _es.AddComponent(camera, new TransformComponent(new Vector3(0.0f, 0.0f, 3.0f), Vector3.Zero, Vector3.One));
+            _es.AddComponent(camera, new ScriptComponent(CameraScript));
+
+            Size = (1920, 1080);
+            VSync = VSyncMode.Off;
+        }
+
+
+        private void CameraScript(Entity entity, float timeDelta)
+        {
+            if (!IsFocused)
+                return;
+
+
+            ref var cameraComponent = ref entity.GetComponent<CameraComponent>();
+
+            var input = KeyboardState;
+
+            const float cameraSpeed = 1.5f;
+            const float sensitivity = 0.2f;
+
+
+            if (input.IsKeyDown(Keys.W))
+            {
+                cameraComponent.Position += cameraComponent.Front * cameraSpeed * timeDelta;
+            }
+            if (input.IsKeyDown(Keys.S))
+            {
+                cameraComponent.Position -= cameraComponent.Front * cameraSpeed * timeDelta;
+            }
+            if (input.IsKeyDown(Keys.A))
+            {
+                cameraComponent.Position -= Vector3.Normalize(Vector3.Cross(cameraComponent.Front, cameraComponent.Up)) * cameraSpeed * timeDelta;
+            }
+            if (input.IsKeyDown(Keys.D))
+            {
+                cameraComponent.Position += Vector3.Normalize(Vector3.Cross(cameraComponent.Front, cameraComponent.Up)) * cameraSpeed * timeDelta;
+            }
+
+            var mouse = MouseState;
+
+            var deltaX = mouse.X - mouse.PreviousX;
+            var deltaY = mouse.Y - mouse.PreviousY;
+
+            cameraComponent.Yaw += deltaX * sensitivity;
+            cameraComponent.Pitch -= deltaY * sensitivity;
+
+            if (cameraComponent.Pitch > 89.0f)
+                cameraComponent.Pitch = 89.0f;
+            if (cameraComponent.Pitch < -89.0f)
+                cameraComponent.Pitch = -89.0f;
         }
 
         protected override void OnLoad()
@@ -66,8 +136,18 @@ namespace OpenGLEngine
             var cube = _es.CreateEntity();
             _es.AddComponent(cube, cubeModel);
 
+
+
+
             //var cube2 = _es.CreateEntity();
             //_es.AddComponent(ref cube2, ref planeComponent);
+        }
+
+        protected override void OnUpdateFrame(FrameEventArgs args)
+        {
+            base.OnUpdateFrame(args);
+
+            _scriptSystem.OnUpdate((float)args.Time);
         }
 
         protected override void OnRenderFrame(FrameEventArgs args)
@@ -79,17 +159,13 @@ namespace OpenGLEngine
             _shader!.Use();
 
 
-            Matrix4 model = Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(-30.0f));
+            Matrix4 model = Matrix4.Identity;
+            model *= Matrix4.CreateRotationX(MathHelper.DegreesToRadians(-55.0f));
 
-            Matrix4 view = Matrix4.CreateTranslation(0.0f, 0.0f, -2.0f);
-
-            Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(45.0f), Size.X / Size.Y, 0.1f, 100.0f);
 
             GL.UniformMatrix4(GL.GetUniformLocation(_shader.Handle, "model"), true, ref model);
-            GL.UniformMatrix4(GL.GetUniformLocation(_shader.Handle, "view"), true, ref view);
-            GL.UniformMatrix4(GL.GetUniformLocation(_shader.Handle, "projection"), true, ref projection);
 
-
+            _cameraSystem.Draw(_shader);
             _renderSystem.Draw(_shader);
             SwapBuffers();
         }
@@ -99,6 +175,7 @@ namespace OpenGLEngine
             base.OnResize(e);
 
             GL.Viewport(0, 0, e.Width, e.Height);
+            _cameraSystem.OnResize(e.Size);
         }
 
         protected override void OnUnload()
@@ -119,13 +196,13 @@ namespace OpenGLEngine
                 var meshComponent = entity.GetComponent<MeshComponent>();
 
                 var translation = new Vector3(0.0f, 0.0f, 0f);
-                var rotation = Matrix4.CreateRotationX((float)MathHelper.DegreesToRadians(GLFW.GetTime() * 10));
-                rotation *= Matrix4.CreateRotationZ((float)MathHelper.DegreesToRadians(GLFW.GetTime() * 10));
-                //var rotation = new Vector3((float)GLFW.GetTime() * (i), 0f, (float)GLFW.GetTime());
+                //var rotation = Matrix4.CreateRotationX((float)MathHelper.DegreesToRadians(GLFW.GetTime() * 10));
+                //rotation *= Matrix4.CreateRotationZ((float)MathHelper.DegreesToRadians(GLFW.GetTime() * 10));
+                ////var rotation = new Vector3((float)GLFW.GetTime() * (i), 0f, (float)GLFW.GetTime());
                 var scale = new Vector3(0.25f, 0.25f, 0.25f);
 
-                var r = rotation;
-                //var r = Matrix4.CreateFromQuaternion(Quaternion.FromEulerAngles(rotation));
+                //var r = rotation;
+                var r = Matrix4.CreateFromQuaternion(Quaternion.FromEulerAngles(Vector3.Zero));
                 var t = Matrix4.CreateTranslation(translation);
                 var s = Matrix4.CreateScale(scale);
 
@@ -135,6 +212,47 @@ namespace OpenGLEngine
 
                 meshComponent.Draw(shader);
                 i++;
+            }
+        }
+    }
+
+    internal class CameraSystem : ECS.System
+    {
+        public void Draw(Shader shader)
+        {
+            var cameraEntity = Entities.First(); //TODO: what if more than one camera
+
+            var cameraComponent = cameraEntity.GetComponent<CameraComponent>();
+
+            var projection = cameraComponent.GetProjection();
+
+            var transformComponent = cameraEntity.GetComponent<TransformComponent>();
+
+            var view = cameraComponent.GetView() * transformComponent.GetTransform().Inverted();
+
+            GL.UniformMatrix4(GL.GetUniformLocation(shader.Handle, "view"), true, ref view);
+            GL.UniformMatrix4(GL.GetUniformLocation(shader.Handle, "projection"), true, ref projection);
+        }
+
+        public void OnResize(Vector2i size)
+        {
+            var cameraEntity = Entities.First(); //TODO: what if more than one camera
+
+            var cameraComponent = cameraEntity.GetComponent<CameraComponent>();
+
+            cameraComponent.SetViewportSize(size.X, size.Y);
+        }
+    }
+
+    internal class ScriptSystem : ECS.System
+    {
+        public void OnUpdate(float timeDelta)
+        {
+            foreach (var entity in Entities)
+            {
+                var component = entity.GetComponent<ScriptComponent>();
+
+                component.OnUpdate(entity, timeDelta);
             }
         }
     }
